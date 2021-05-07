@@ -14,5 +14,5 @@ import (
 func main() {
 	np := nonpersistent.New()
 
-	fmt.Println("np: %v", np)
+	fmt.Printf("np: %v", np)
 }
