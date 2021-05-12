@@ -6,13 +6,51 @@
 package main
 
 import (
-	"fmt"
+	"flag"
+	"log"
+	"net"
+	"net/http"
 
+	"github.com/kelseyhightower/envconfig"
+	"github.com/macewan-cs/lti/datastore"
 	"github.com/macewan-cs/lti/datastore/nonpersistent"
+	"github.com/urfave/negroni"
 )
 
-func main() {
-	np := nonpersistent.New()
+func logger(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	source, _, _ := net.SplitHostPort(r.RemoteAddr)
+	log.Println("request URI:", r.RequestURI, "method:", r.Method, "ip addr:", source)
+	next(w, r)
+}
 
-	fmt.Printf("np: %v", np)
+func main() {
+	var httpAddr = flag.String("addr", ":8080", "example app listen address")
+	flag.Parse()
+
+	var registration datastore.Registration
+
+	// Environment variables:
+	// issuer, clientID, authTokenURI, authLoginURI, keysetURI, launchURI
+	err := envconfig.Process("reg", &registration)
+	if err != nil {
+		log.Fatalf("environment parse error: %v", err)
+	}
+
+	err = nonpersistent.DefaultStore.StoreRegistration(registration)
+	if err != nil {
+		log.Fatalf("store error: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	// make login object
+	// mux.HandleFunc("/login", login)
+
+	n := negroni.New()
+	n.Use(negroni.HandlerFunc(logger))
+	n.UseHandler(mux)
+
+	err = http.ListenAndServe(*httpAddr, n)
+	if err != nil {
+		log.Fatalf("http server error: %v", err)
+	}
 }

@@ -1,0 +1,6 @@
+github.com/kelseyhightower/envconfig v1.4.0 h1:Im6hONhd3pLkfDFsbRgu68RDNkGF1r3dvMUtDTo2cv8=
+github.com/kelseyhightower/envconfig v1.4.0/go.mod h1:cccZRl6mQpaq41TPp5QxidR+Sa3axMbJDNb//FQX6Gg=
+github.com/macewan-cs/lti v0.0.0-20210507154248-228556c55827 h1:qhm2vYVbrLtLtLn7JLsoSTa5gEiQ7oJoOBy88u71/S4=
+github.com/macewan-cs/lti v0.0.0-20210507154248-228556c55827/go.mod h1:N+AvV8RJp+Sk4zhYYB3j7qVE7vpziz1Da7osBUM93M8=
+github.com/urfave/negroni v1.0.0 h1:kIimOitoypq34K7TG7DUaJ9kq/N4Ofuwi1sjz0KipXc=
+github.com/urfave/negroni v1.0.0/go.mod h1:Meg73S6kFm/4PpbYdq35yYWoCZ9mS/YSx+lKnmiohz4=
