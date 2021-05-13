@@ -14,6 +14,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/macewan-cs/lti/datastore"
 	"github.com/macewan-cs/lti/datastore/nonpersistent"
+	"github.com/macewan-cs/lti/login"
 	"github.com/urfave/negroni"
 )
 
@@ -42,8 +43,9 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	// make login object
-	// mux.HandleFunc("/login", login)
+	// Use a blank configuration to get default nonpersistent datastores.
+	login := login.New(login.Config{})
+	mux.Handle("/login", login)
 
 	n := negroni.New()
 	n.Use(negroni.HandlerFunc(logger))
