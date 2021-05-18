@@ -12,12 +12,17 @@ import (
 	"net/http"
 
 	"github.com/kelseyhightower/envconfig"
+	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/macewan-cs/lti/datastore"
 	"github.com/macewan-cs/lti/datastore/nonpersistent"
 	"github.com/macewan-cs/lti/launch"
 	"github.com/macewan-cs/lti/login"
 	"github.com/urfave/negroni"
 )
+
+type JSONKeySet struct {
+	Keys [1]jwk.Key `json:"keys"`
+}
 
 func logger(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	source, _, _ := net.SplitHostPort(r.RemoteAddr)
@@ -30,17 +35,26 @@ func main() {
 	flag.Parse()
 
 	var registration datastore.Registration
+	var deployment datastore.Deployment
 
-	// Environment variables:
-	// issuer, clientID, authTokenURI, authLoginURI, keysetURI, launchURI
+	// Environment variables. Set to your values to test/demo.
+	// Registration: ('reg_' + ) issuer, clientID, authTokenURI, authLoginURI, keysetURI, launchURI
 	err := envconfig.Process("reg", &registration)
 	if err != nil {
-		log.Fatalf("environment parse error: %v", err)
+		log.Fatalf("registration environment parse error: %v", err)
 	}
-
 	err = nonpersistent.DefaultStore.StoreRegistration(registration)
 	if err != nil {
-		log.Fatalf("store error: %v", err)
+		log.Fatalf("registration store error: %v", err)
+	}
+	// Deployment: ('dep_' + ) deploymentID
+	err = envconfig.Process("dep", &deployment)
+	if err != nil {
+		log.Fatalf("deployment environment parse error: %v", err)
+	}
+	err = nonpersistent.DefaultStore.StoreDeployment(registration.Issuer, deployment.DeploymentID)
+	if err != nil {
+		log.Fatalf("deployment store error: %v", err)
 	}
 
 	mux := http.NewServeMux()
