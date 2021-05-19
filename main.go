@@ -12,17 +12,12 @@ import (
 	"net/http"
 
 	"github.com/kelseyhightower/envconfig"
-	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/macewan-cs/lti/datastore"
 	"github.com/macewan-cs/lti/datastore/nonpersistent"
 	"github.com/macewan-cs/lti/launch"
 	"github.com/macewan-cs/lti/login"
 	"github.com/urfave/negroni"
 )
-
-type JSONKeySet struct {
-	Keys [1]jwk.Key `json:"keys"`
-}
 
 func logger(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	source, _, _ := net.SplitHostPort(r.RemoteAddr)
