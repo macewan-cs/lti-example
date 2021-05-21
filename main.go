@@ -7,15 +7,15 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
 
 	"github.com/kelseyhightower/envconfig"
+	"github.com/macewan-cs/lti"
 	"github.com/macewan-cs/lti/datastore"
 	"github.com/macewan-cs/lti/datastore/nonpersistent"
-	"github.com/macewan-cs/lti/launch"
-	"github.com/macewan-cs/lti/login"
 	"github.com/urfave/negroni"
 )
 
@@ -54,10 +54,12 @@ func main() {
 
 	mux := http.NewServeMux()
 	// Use a blank configuration to get default nonpersistent datastore.
-	login := login.New(login.Config{})
-	mux.Handle("/login", login)
-	launch := launch.New(launch.Config{})
-	mux.Handle("/launch", launch)
+	mux.Handle("/login", lti.NewLogin(lti.NewLoginConfig()))
+	mux.Handle("/launch",
+		lti.NewLaunch(lti.NewLaunchConfig(),
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(w, "Launch successful.")
+			})))
 
 	n := negroni.New()
 	n.Use(negroni.HandlerFunc(logger))
