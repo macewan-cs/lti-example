@@ -16,24 +16,15 @@ import (
 	"github.com/macewan-cs/lti"
 	"github.com/macewan-cs/lti/datastore"
 	"github.com/macewan-cs/lti/datastore/nonpersistent"
-	"github.com/urfave/negroni"
 )
-
-func logger(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	source, _, _ := net.SplitHostPort(r.RemoteAddr)
-	log.Println("request URI:", r.RequestURI, "method:", r.Method, "ip addr:", source)
-	next(w, r)
-}
 
 func main() {
 	var httpAddr = flag.String("addr", ":8080", "example app listen address")
 	flag.Parse()
 
-	var registration datastore.Registration
-	var deployment datastore.Deployment
-
 	// Environment variables. Set to your values to test/demo.
 	// Registration: ('reg_' + ) issuer, clientID, authTokenURI, authLoginURI, keysetURI, launchURI
+	var registration datastore.Registration
 	err := envconfig.Process("reg", &registration)
 	if err != nil {
 		log.Fatalf("registration environment parse error: %v", err)
@@ -42,7 +33,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("registration store error: %v", err)
 	}
+
 	// Deployment: ('dep_' + ) deploymentID
+	var deployment datastore.Deployment
 	err = envconfig.Process("dep", &deployment)
 	if err != nil {
 		log.Fatalf("deployment environment parse error: %v", err)
@@ -52,20 +45,22 @@ func main() {
 		log.Fatalf("deployment store error: %v", err)
 	}
 
-	mux := http.NewServeMux()
 	// Use a blank configuration to get default nonpersistent datastore.
-	mux.Handle("/login", lti.NewLogin(lti.NewLoginConfig()))
-	mux.Handle("/launch",
+	http.Handle("/login", lti.NewLogin(lti.NewLoginConfig()))
+	http.Handle("/launch",
 		lti.NewLaunch(lti.NewLaunchConfig(),
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "Launch successful.")
 			})))
 
-	n := negroni.New()
-	n.Use(negroni.HandlerFunc(logger))
-	n.UseHandler(mux)
+	err = http.ListenAndServe(*httpAddr,
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			source, _, _ := net.SplitHostPort(r.RemoteAddr)
+			log.Println("request URI:", r.RequestURI, "method:", r.Method, "ip addr:", source)
 
-	err = http.ListenAndServe(*httpAddr, n)
+			http.DefaultServeMux.ServeHTTP(w, r)
+		}),
+	)
 	if err != nil {
 		log.Fatalf("http server error: %v", err)
 	}
