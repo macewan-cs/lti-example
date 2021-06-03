@@ -36,7 +36,7 @@ func nonpersistentConfig() datastore.Config {
 
 	// Retrieve deployment details from environment variables.
 	deployment := env.DeploymentFromEnvironment()
-	err = nonpersistent.DefaultStore.StoreDeployment(registration.Issuer, deployment.DeploymentID)
+	err = nonpersistent.DefaultStore.StoreDeployment(registration.Issuer, deployment)
 	if err != nil {
 		log.Fatalf("deployment store error: %v", err)
 	}
