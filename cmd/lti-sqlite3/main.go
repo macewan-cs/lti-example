@@ -32,8 +32,8 @@ const sqlite3Database = "test.db"
 // mustNotExist attempts to read the specified filename, and if it can be read, it terminates the program with an error.
 func mustNotExist(filename string) {
 	if f, err := os.Open(filename); err == nil {
-		log.Fatalf("database file already exists (%s)", filename)
 		f.Close()
+		log.Fatalf("database file already exists (%s)", filename)
 	}
 }
 
