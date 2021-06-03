@@ -18,13 +18,14 @@ The [IMS Global Learning Consortium](http://www.imsglobal.org/) developed the [L
 The two applications in this repository, both minimal working examples of learning tools, demonstrate the use of our Go-based [lti](https://github.com/macewan-cs/lti) library.
 The library partially implements version 1.3 of the specification for developers for Go-based learning tools.
 
-One of the example, ```minimal-example.go```, provides an absolute minimal working example of the library.
+One of the example, ```cmd/lti-minimal/main.go```, provides an absolute minimal working example of the library.
 It uses the library's internal nonpersistent datastore.
 
-The other example, ```sql-example.go```, provides a slightly more complicated example.
+The other example, ```cmd/lti-sqlite3/main.go```, provides a slightly more complicated example.
 It uses a persistent SQLite store for registrations.
 
-Both of these examples share some code, but we have intentionally duplicated that code in the source files to make the application code is as easy to understand as possible.
+While some code related to environment variables has been factored out, both of these examples share some code.
+We have intentionally duplicated that code in the source files to make the application code is as easy to understand as possible.
 
 ## Technologies Used
 
@@ -80,8 +81,8 @@ export DEP_DEPLOYMENTID=1
 export KEY_PRIVATE="$(cat private.pem)"
 ```
 6. Run the desired learning tool:
-   - ```go run cmd/minimal/main.go```
-   - ```go run cmd/sqlite3/main.go```
+   - ```go run cmd/lti-minimal/main.go```
+   - ```go run cmd/lti-sqlite3/main.go```
 7. Attempt to launch the learning tool from the learning platform.
 
 ## Project Status
