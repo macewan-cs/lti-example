@@ -1,2 +1,5 @@
 # Environment variables
 .envrc
+*~
+cmd/minimal/minimal
+cmd/sqlite3/sqlite3
