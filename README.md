@@ -80,8 +80,8 @@ export DEP_DEPLOYMENTID=1
 export KEY_PRIVATE="$(cat private.pem)"
 ```
 6. Run the desired learning tool:
-   - ```go run minimal-example.go```
-   - ```go run sql-example.go```
+   - ```go run cmd/minimal/main.go```
+   - ```go run cmd/sqlite3/main.go```
 7. Attempt to launch the learning tool from the learning platform.
 
 ## Project Status

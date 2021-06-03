@@ -3,6 +3,11 @@
 // This source code is licensed under the MIT-style license found in
 // the LICENSE file in the root directory of this source tree.
 
+// Package main implements an example of some the LTI library features. Unlike the program in ../minimal, this program
+// uses an SQL database for registration/deployment storage and a nonpersistent store for the other data it needs to
+// store.
+//
+// On startup, the program loads all configuration data from environment variables.
 package main
 
 import (
@@ -14,63 +19,17 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/kelseyhightower/envconfig"
 	"github.com/macewan-cs/lti"
+	"github.com/macewan-cs/lti-example/internal/env"
 	"github.com/macewan-cs/lti/connector"
 	"github.com/macewan-cs/lti/datastore"
-	"github.com/macewan-cs/lti/datastore/nonpersistent"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 const sqlite3Database = "test.db"
 
-// registrationFromEnvironment loads the registration details from environment variables.
-//
-// Variables:
-// ('reg_' + ) issuer, clientID, authTokenURI, authLoginURI, keysetURI, launchURI
-func registrationFromEnvironment() datastore.Registration {
-	var registration datastore.Registration
-	err := envconfig.Process("reg", &registration)
-	if err != nil {
-		log.Fatalf("registration environment parse error: %v", err)
-	}
-
-	return registration
-}
-
-// deploymentFromEnvironment loads the deployment details from environment variables.
-//
-// Variables:
-// ('dep_' + ) deploymentID
-func deploymentFromEnvironment() datastore.Deployment {
-	var deployment datastore.Deployment
-	err := envconfig.Process("dep", &deployment)
-	if err != nil {
-		log.Fatalf("deployment environment parse error: %v", err)
-	}
-
-	return deployment
-}
-
-type Key struct {
-	Private string
-}
-
-// keyFromEnvironment loads the key details from environment variables.
-//
-// Variables:
-// ('key_' + ) private
-func keyFromEnvironment() Key {
-	var key Key
-	err := envconfig.Process("key", &key)
-	if err != nil {
-		log.Fatalf("key environment parse error: %v", err)
-	}
-
-	return key
-}
-
+// mustNotExist attempts to read the specified filename, and if it can be read, it terminates the program with an error.
 func mustNotExist(filename string) {
 	if f, err := os.Open(filename); err == nil {
 		log.Fatalf("database file already exists (%s)", filename)
@@ -78,7 +37,9 @@ func mustNotExist(filename string) {
 	}
 }
 
-func mustPopulateDatabase(db *sql.DB) {
+// populateRegistrationAndDeployment attempts to populate the database with tables and an initial registration and deployment. If it
+// encounters any errors, it terminates the program with an error.
+func populateRegistrationAndDeployment(db *sql.DB) {
 	createStatements := []string{
 		`CREATE TABLE registration ( issuer text, client_id text, auth_token_uri text, auth_login_uri text,
                                              keyset_uri text, target_link_uri text,
@@ -94,7 +55,7 @@ func mustPopulateDatabase(db *sql.DB) {
 		}
 	}
 
-	registration := registrationFromEnvironment()
+	registration := env.RegistrationFromEnvironment()
 
 	q := `INSERT INTO registration ( issuer, client_id, auth_token_uri, auth_login_uri, keyset_uri,
                                             target_link_uri )
@@ -105,7 +66,7 @@ func mustPopulateDatabase(db *sql.DB) {
 		log.Fatalf("cannot populate registration: %v", err)
 	}
 
-	deployment := deploymentFromEnvironment()
+	deployment := env.DeploymentFromEnvironment()
 
 	q = `INSERT INTO deployment (issuer, deployment_id)
                   VALUES ($1, $2)`
@@ -115,73 +76,65 @@ func mustPopulateDatabase(db *sql.DB) {
 	}
 }
 
-func sqlDatastoreConfig() datastore.Config {
-	// Create and populate an sqlite3 database for testing.
+// sqlConfig returns a datastore.Config, which is suitable for creating LTI login handlers, LTI launch handlers, and
+// after a launch, LTI connectors.
+func sqlConfig() datastore.Config {
+	// Create an sqlite3 database for testing.
 	mustNotExist(sqlite3Database)
 	db, err := sql.Open("sqlite3", sqlite3Database)
 	if err != nil {
 		log.Fatalf("registration database error: %v", err)
 	}
-	mustPopulateDatabase(db)
+
+	// Populate the database with registration and deployment details from environment variables.
+	populateRegistrationAndDeployment(db)
 
 	datastoreConfig := lti.NewDatastoreConfig()
-
 	sqlDatastore := lti.NewSQLDatastore(db, lti.NewSQLDatastoreConfig())
 	datastoreConfig.Registrations = sqlDatastore
 
 	return datastoreConfig
 }
 
-func nonpersistentDatastoreConfig() datastore.Config {
-	registration := registrationFromEnvironment()
-	err := nonpersistent.DefaultStore.StoreRegistration(registration)
-	if err != nil {
-		log.Fatalf("registration store error: %v", err)
-	}
-
-	deployment := deploymentFromEnvironment()
-	err = nonpersistent.DefaultStore.StoreDeployment(registration.Issuer, deployment.DeploymentID)
-	if err != nil {
-		log.Fatalf("deployment store error: %v", err)
-	}
-
-	// The default datastore configuration uses nonpersistent.DefaultStore.
-	return lti.NewDatastoreConfig()
-}
-
-func postLaunchHandler(datastoreConfig datastore.Config) func(http.ResponseWriter, *http.Request) {
-	key := keyFromEnvironment()
+// postLaunchHandler returns an http.HandlerFunc suitable for the second argument of lti.NewLaunch.
+func postLaunchHandler(datastoreConfig datastore.Config) http.HandlerFunc {
+	// Retrieve the key from environment variables.
+	key := env.KeyFromEnvironment()
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "<p>Launch successful!</p>")
-
-		fmt.Fprintf(w, "<p>Launch ID from request context: %s</p>", lti.LaunchIDFromContext(r.Context()))
-		fmt.Fprintf(w, "<p>Launch ID from request: %s</p>", lti.LaunchIDFromRequest(r))
-
+		// Create a connector, which is necessary to access LTI services.
 		conn, err := connector.New(datastoreConfig, lti.LaunchIDFromRequest(r))
 		if err != nil {
-			fmt.Println(err)
+			log.Printf("cannot create connector for launch: %v", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
+
 		conn.SetSigningKey(key.Private)
 
+		// Upgrade the connector to access Name and Role Provisioning Services.
 		nrps, err := conn.UpgradeNRPS()
 		if err != nil {
-			fmt.Println(err)
+			log.Printf("cannot upgrade connector for NRPS: %v", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 
+		// Get membership to demonstrate access to NRPS.
 		membership, err := nrps.GetMembership()
 		if err != nil {
-			fmt.Println(err)
+			log.Printf("cannot get membership: %v", err)
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			return
 		}
 
-		fmt.Fprintf(w, "<p>Members:</p><ul>")
-		for _, member := range membership.Members {
-			fmt.Fprintf(w, "<li>%s</li>", member.Name)
-		}
-		fmt.Fprintf(w, "</ul>")
+		fmt.Fprintf(w, `<p>Launch successful!</p>
+<p>Launch ID from request: %s</p>
+<p>Course title: %s</p>`, lti.LaunchIDFromRequest(r), membership.Context.Title)
 	}
 }
 
+// logRequest logs a request made to the HTTP server.
 func logRequest(r *http.Request) {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.Encode(struct {
@@ -197,23 +150,14 @@ func logRequest(r *http.Request) {
 
 func main() {
 	var httpAddr = flag.String("addr", ":8080", "example app listen address")
-	var datastoreType = flag.String("datastore", "nonpersistent", "datastore to use")
 	flag.Parse()
 
-	var datastoreConfig datastore.Config
-	switch *datastoreType {
-	case "sqlite3":
-		datastoreConfig = sqlDatastoreConfig()
-	case "nonpersistent":
-		datastoreConfig = nonpersistentDatastoreConfig()
-	default:
-		log.Fatalf("unsupported datastore (%s)", *datastoreType)
-	}
-
+	datastoreConfig := sqlConfig()
 	http.Handle("/login", lti.NewLogin(datastoreConfig))
 	http.Handle("/launch", lti.NewLaunch(datastoreConfig,
 		postLaunchHandler(datastoreConfig)))
 
+	log.Printf("Listening for connections on %s...\n", *httpAddr)
 	err := http.ListenAndServe(*httpAddr,
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			logRequest(r)
