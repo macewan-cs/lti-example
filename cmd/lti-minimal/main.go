@@ -101,10 +101,12 @@ func main() {
 	var httpAddr = flag.String("addr", ":8080", "example app listen address")
 	flag.Parse()
 
+	key := env.KeyFromEnvironment()
 	datastoreConfig := nonpersistentConfig()
 	http.Handle("/login", lti.NewLogin(datastoreConfig))
 	http.Handle("/launch", lti.NewLaunch(datastoreConfig,
 		postLaunchHandler(datastoreConfig)))
+	http.Handle("/keyset", lti.NewKeyset("MyKeyIdentifier", key.Private))
 
 	log.Printf("Listening for connections on %s...\n", *httpAddr)
 	err := http.ListenAndServe(*httpAddr,
