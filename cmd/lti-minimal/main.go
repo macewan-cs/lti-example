@@ -24,6 +24,8 @@ import (
 	"github.com/macewan-cs/lti/datastore/nonpersistent"
 )
 
+const keyID = "defaultKey"
+
 // nonpersistentConfig returns a datastore.Config, which is suitable for creating LTI login handlers, LTI launch
 // handlers, and after a launch, LTI connectors.
 func nonpersistentConfig() datastore.Config {
@@ -52,7 +54,7 @@ func postLaunchHandler(datastoreConfig datastore.Config) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Create a connector, which is necessary to access LTI services.
-		conn, err := connector.New(datastoreConfig, lti.LaunchIDFromRequest(r))
+		conn, err := connector.New(datastoreConfig, lti.LaunchIDFromRequest(r), keyID)
 		if err != nil {
 			log.Printf("cannot create connector for launch: %v", err)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
